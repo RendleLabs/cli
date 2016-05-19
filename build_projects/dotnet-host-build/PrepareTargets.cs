@@ -234,9 +234,9 @@ namespace Microsoft.DotNet.Host.Build
         public static BuildTargetResult RestorePackages(BuildTargetContext c)
         {
             var dotnet = DotNetCli.Stage0;
-
+            
             dotnet.Restore("--verbosity", "verbose", "--disable-parallel", "--infer-runtimes")
-                .WorkingDirectory(Path.Combine(c.BuildContext.BuildDirectory, "tools"))
+                .WorkingDirectory(Path.Combine(c.BuildContext.BuildDirectory, "tools", "RuntimeGraphGenerator"))
                 .Execute()
                 .EnsureSuccessful();
 
