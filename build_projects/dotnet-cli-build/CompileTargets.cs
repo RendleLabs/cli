@@ -85,7 +85,7 @@ namespace Microsoft.DotNet.Cli.Build
 
             var result = CompileCliSdk(c,
                 dotnet: DotNetCli.Stage0,
-                outputDir: Dirs.Stage1);
+                rootOutputDirectory: Dirs.Stage1);
 
             CleanOutputDir(Path.Combine(Dirs.Stage1, "sdk"));
             FS.CopyRecursive(Dirs.Stage1, Dirs.Stage1Symbols);
@@ -110,7 +110,7 @@ namespace Microsoft.DotNet.Cli.Build
 
             var result = CompileCliSdk(c,
                 dotnet: DotNetCli.Stage1,
-                outputDir: Dirs.Stage2);
+                rootOutputDirectory: Dirs.Stage2);
 
             if (!result.Success)
             {
@@ -197,6 +197,7 @@ namespace Microsoft.DotNet.Cli.Build
             var compilersDeps = Path.Combine(sdkOutputDirectory, "compilers.deps.json");
             var compilersRuntimeConfig = Path.Combine(sdkOutputDirectory, "compilers.runtimeconfig.json");
 
+            // Copy Host to SDK Directory
             File.Copy(Path.Combine(Dirs.CorehostLocked, DotnetHostBaseName), Path.Combine(sdkOutputDirectory, $"corehost{Constants.ExeSuffix}"), overwrite: true);
             File.Copy(Path.Combine(Dirs.CorehostLocked, $"{Constants.DynamicLibPrefix}hostfxr{Constants.DynamicLibSuffix}"), Path.Combine(sdkOutputDirectory, $"{Constants.DynamicLibPrefix}hostfxr{Constants.DynamicLibSuffix}"), overwrite: true);
             File.Copy(Path.Combine(Dirs.CorehostLatest, $"{Constants.DynamicLibPrefix}hostpolicy{Constants.DynamicLibSuffix}"), Path.Combine(sdkOutputDirectory, $"{Constants.DynamicLibPrefix}hostpolicy{Constants.DynamicLibSuffix}"), overwrite: true);
@@ -224,20 +225,12 @@ namespace Microsoft.DotNet.Cli.Build
             PublishMutationUtilties.CleanPublishOutput(sdkOutputDirectory, "compilers");
             File.Delete(compilersDeps);
             
-            // Publish SharedFx
+            // Crossgen SDK directory
             var sharedFrameworkNugetVersion = c.BuildContext.Get<string>("SharedFrameworkNugetVersion");
-            var commitHash = c.BuildContext.Get<string>("CommitHash");
 
-            var sharedFrameworkPublisher = new SharedFrameworkPublisher(
-                Dirs.RepoRoot,
-                Dirs.CorehostLocked,
-                Dirs.CorehostLatest,
-                Dirs.CorehostLocalPackages,
-                sharedFrameworkNugetVersion);
-
-            sharedFrameworkPublisher.PublishSharedFramework(sdkOutputDirectory, commitHash, dotnet);
-
-            CrossgenUtil.CrossgenDirectory(sharedFrameworkPublisher.GetSharedFrameworkPublishPath(sdkOutputDirectory), sdkOutputDirectory);
+            CrossgenUtil.CrossgenDirectory(
+                SharedFrameworkPublisher.GetSharedFrameworkPublishPath(rootOutputDirectory, sharedFrameworkNugetVersion), 
+                sdkOutputDirectory);
 
             // Generate .version file
             var version = buildVersion.NuGetVersion;
@@ -250,8 +243,6 @@ namespace Microsoft.DotNet.Cli.Build
         private static void CopySharedFramework(string sharedFrameworkPublish, string rootOutputDirectory)
         {
             CopyRecursive(sharedFrameworkPublish, rootOutputDirectory);
-            Console.WriteLine(rootOutputDirectory);
-            throw new Exception();
         }
     }
 }

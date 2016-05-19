@@ -46,7 +46,7 @@ namespace Microsoft.DotNet.Host.Build
             nameof(CompileCoreHost), 
             nameof(PackagePkgProjects),
             nameof(RestoreLockedCoreHost),
-            nameof(PublishSharedFramework))]
+            nameof(PublishSharedFrameworkAndSharedHost))]
         public static BuildTargetResult Compile(BuildTargetContext c)
         {
             return c.Success();
@@ -278,7 +278,7 @@ namespace Microsoft.DotNet.Host.Build
         }
 
         [Target]
-        public static BuildTargetResult PublishSharedFramework(BuildTargetContext c)
+        public static BuildTargetResult PublishSharedFrameworkAndSharedHost(BuildTargetContext c)
         {
             var outputDir = Dirs.SharedFrameworkPublish;
             var dotnetCli = DotNetCli.Stage0;
@@ -293,6 +293,7 @@ namespace Microsoft.DotNet.Host.Build
                 sharedFrameworkNugetVersion);
 
             sharedFrameworkPublisher.PublishSharedFramework(outputDir, commitHash, dotnetCli);
+            sharedFrameworkPublisher.CopySharedHostArtifacts(outputDir);
 
             return c.Success();
         }

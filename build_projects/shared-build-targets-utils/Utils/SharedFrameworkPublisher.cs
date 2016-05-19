@@ -51,13 +51,13 @@ namespace Microsoft.DotNet.Cli.Build
                 _sharedFrameworkRid);
         }
 
-        public string GetSharedFrameworkPublishPath(string outputRootDirectory)
+        public static string GetSharedFrameworkPublishPath(string outputRootDirectory, string sharedFrameworkNugetVersion)
         {
             return Path.Combine(
                 outputRootDirectory,
                 "shared",
                 s_sharedFrameworkName,
-                _sharedFrameworkNugetVersion);
+                sharedFrameworkNugetVersion);
         }
 
         private string ComputeSharedFrameworkRid()
@@ -65,6 +65,18 @@ namespace Microsoft.DotNet.Cli.Build
             return RuntimeEnvironment.OperatingSystemPlatform == Platform.Windows 
                 ? $"win7-{RuntimeEnvironment.RuntimeArchitecture}"
                 : RuntimeEnvironment.GetRuntimeIdentifier();
+        }
+
+        public void CopySharedHostArtifacts(string sharedFrameworkPublishRoot)
+        {
+            File.Copy(
+                Path.Combine(_corehostLockedDirectory, HostArtifactNames.DotnetHostBaseName),
+                Path.Combine(sharedFrameworkPublishRoot, HostArtifactNames.DotnetHostBaseName), true);
+
+            File.Copy(
+                Path.Combine(_corehostLockedDirectory, HostArtifactNames.DotnetHostFxrBaseName),
+                Path.Combine(sharedFrameworkPublishRoot, HostArtifactNames.DotnetHostFxrBaseName), true);
+
         }
 
         public void PublishSharedFramework(string outputRootDirectory, string commitHash, DotNetCli dotnetCli)
@@ -79,7 +91,7 @@ namespace Microsoft.DotNet.Cli.Build
                 .EnsureSuccessful();
 
             // We publish to a sub folder of the PublishRoot so tools like heat and zip can generate folder structures easier.
-            string sharedFrameworkNameAndVersionRoot = GetSharedFrameworkPublishPath(outputRootDirectory);
+            string sharedFrameworkNameAndVersionRoot = GetSharedFrameworkPublishPath(outputRootDirectory, _sharedFrameworkNugetVersion);
             if (Directory.Exists(sharedFrameworkNameAndVersionRoot))
             {
                 Utils.DeleteDirectory(sharedFrameworkNameAndVersionRoot);
@@ -103,7 +115,7 @@ namespace Microsoft.DotNet.Cli.Build
             // Generate RID fallback graph
             GenerateRuntimeGraph(dotnetCli, destinationDeps);
 
-            CopyHostArtifactsToSharedFramework(outputRootDirectory);
+            CopyHostArtifactsToSharedFramework(sharedFrameworkNameAndVersionRoot);
             
             if (File.Exists(Path.Combine(sharedFrameworkNameAndVersionRoot, "mscorlib.ni.dll")))
             {
@@ -158,23 +170,23 @@ namespace Microsoft.DotNet.Cli.Build
             }
         }
 
-        private void CopyHostArtifactsToSharedFramework(string sharedFrameworkPublishRoot)
+        private void CopyHostArtifactsToSharedFramework(string sharedFrameworkNameAndVersionRoot)
         {
             File.Copy(
                 Path.Combine(_corehostLockedDirectory, HostArtifactNames.DotnetHostBaseName),
-                Path.Combine(sharedFrameworkPublishRoot, HostArtifactNames.DotnetHostBaseName), true);
+                Path.Combine(sharedFrameworkNameAndVersionRoot, HostArtifactNames.DotnetHostBaseName), true);
             File.Copy(
                Path.Combine(_corehostLockedDirectory, HostArtifactNames.DotnetHostBaseName),
-               Path.Combine(sharedFrameworkPublishRoot, $"corehost{Constants.ExeSuffix}"), true);
+               Path.Combine(sharedFrameworkNameAndVersionRoot, $"corehost{Constants.ExeSuffix}"), true);
             File.Copy(
                 Path.Combine(_corehostLockedDirectory, HostArtifactNames.DotnetHostFxrBaseName),
-                Path.Combine(sharedFrameworkPublishRoot, HostArtifactNames.DotnetHostFxrBaseName), true);
+                Path.Combine(sharedFrameworkNameAndVersionRoot, HostArtifactNames.DotnetHostFxrBaseName), true);
 
             // Hostpolicy should be the latest and not the locked version as it is supposed to evolve for
             // the framework and has a tight coupling with coreclr's API in the framework.
             File.Copy(
                 Path.Combine(_corehostLatestDirectory, HostArtifactNames.HostPolicyBaseName),
-                Path.Combine(sharedFrameworkPublishRoot, HostArtifactNames.HostPolicyBaseName), true);
+                Path.Combine(sharedFrameworkNameAndVersionRoot, HostArtifactNames.HostPolicyBaseName), true);
         }
 
         private string GenerateSharedFrameworkProject(
