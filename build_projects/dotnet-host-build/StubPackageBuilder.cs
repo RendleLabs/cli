@@ -42,8 +42,8 @@ namespace Microsoft.DotNet.Host.Build
         {
             var projectJson = new StringBuilder();
             projectJson.Append("{");
-            projectJson.Append("  \"dependencies\": { \"System.Console\": \"4.0.0-*\" },");
-            projectJson.Append("  \"frameworks\": { \"netcoreapp1.0\": { } },");
+            projectJson.Append("  \"dependencies\": { \"System.Console\": \"4.0.0-rc2-*\" },");
+            projectJson.Append("  \"frameworks\": { \"netstandard1.5\": { } },");
             projectJson.Append("}");
 
             var programCs = "using System; namespace ConsoleApplication { public class Program { public static void Main(string[] args) { Console.WriteLine(\"Hello World!\"); } } }";

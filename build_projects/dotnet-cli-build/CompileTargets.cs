@@ -83,7 +83,9 @@ namespace Microsoft.DotNet.Cli.Build
 
             string projectJson = $@"{{
   ""dependencies"": {{
-      ""Microsoft.NETCore.DotNetHostResolver"" : ""{lockedHostFxrVersion}""
+      ""Microsoft.NETCore.DotNetHostResolver"" : ""{lockedHostFxrVersion}"",
+      ""Microsoft.NETCore.Platforms"" : ""1.0.1-rc2-*"",
+      ""Microsoft.NETCore.Targets"" : ""1.0.1-rc2-*""
   }},
   ""frameworks"": {{
       ""netcoreapp1.0"": {{}}
