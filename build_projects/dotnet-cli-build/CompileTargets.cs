@@ -216,8 +216,6 @@ namespace Microsoft.DotNet.Cli.Build
                 Path.Combine(outputDir, DotnetHostFxrBaseName), true);
         }
 
-       
-
         private static BuildTargetResult CompileCliSdk(BuildTargetContext c, DotNetCli dotnet, string outputDir)
         {
             var configuration = c.BuildContext.Get<string>("Configuration");
@@ -304,6 +302,5 @@ namespace Microsoft.DotNet.Cli.Build
 
             return c.Success();
         }
-        
     }
 }

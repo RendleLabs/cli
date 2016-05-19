@@ -46,64 +46,6 @@ namespace Microsoft.DotNet.Host.Build
             return c.Success();
         }
 
-        private static void CopyBlobs(string sourceFolder, string destinationFolder)
-        {
-            foreach (string blob in AzurePublisherTool.ListBlobs(sourceFolder))
-            {
-                string source = blob.Replace("/dotnet/", "");
-                string targetName = Path.GetFileName(blob)
-                                        .Replace(SharedFrameworkNugetVersion, "latest")
-                                        .Replace(SharedHostNugetVersion, "latest");
-                string target = $"{destinationFolder}{targetName}";
-                AzurePublisherTool.CopyBlob(source, target);
-            }
-        }
-
-        private static bool CheckIfAllBuildsHavePublished()
-        {
-            Dictionary<string, bool> badges = new Dictionary<string, bool>()
-             {
-                 { "Windows_x86", false },
-                 { "Windows_x64", false },
-                 { "Ubuntu_x64", false },
-                 { "RHEL_x64", false },
-                 { "OSX_x64", false },
-                 { "Debian_x64", false },
-                 { "CentOS_x64", false }
-             };
-
-            List<string> blobs = new List<string>(AzurePublisherTool.ListBlobs($"{Channel}/Binaries/{SharedFrameworkNugetVersion}/"));
-
-            var config = Environment.GetEnvironmentVariable("CONFIGURATION");
-            var versionBadgeName = $"{CurrentPlatform.Current}_{CurrentArchitecture.Current}";
-            if (badges.ContainsKey(versionBadgeName) == false)
-            {
-                throw new ArgumentException("A new OS build was added without adding the moniker to the {nameof(badges)} lookup");
-            }
-
-            foreach (string file in blobs)
-            {
-                string name = Path.GetFileName(file);
-                string key = string.Empty;
-
-                foreach (string img in badges.Keys)
-                {
-                    if ((name.StartsWith($"{img}")) && (name.EndsWith(".svg")))
-                    {
-                        key = img;
-                        break;
-                    }
-                }
-
-                if (string.IsNullOrEmpty(key) == false)
-                {
-                    badges[key] = true;
-                }
-            }
-
-            return badges.Keys.All(key => badges[key]);
-        }
-
         [Target(
             nameof(PublishTargets.PublishInstallerFilesToAzure),
             nameof(PublishTargets.PublishArchivesToAzure),

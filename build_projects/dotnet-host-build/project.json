@@ -15,6 +15,7 @@
 
     "Microsoft.DotNet.Cli.Build.Framework": {"target":"project"},
     "shared-build-targets-utils": {"target": "project"}
+
   },
   "frameworks": {
     "netcoreapp1.0": {
