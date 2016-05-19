@@ -66,55 +66,9 @@ namespace Microsoft.DotNet.Cli.Build
             return c.Success();
         }
 
-        [Target(nameof(PrepareTargets.Init), nameof(RestoreLockedCoreHost), nameof(CompileStage1), nameof(CompileStage2))]
+        [Target(nameof(PrepareTargets.Init), nameof(CompileStage1), nameof(CompileStage2))]
         public static BuildTargetResult Compile(BuildTargetContext c)
         {
-            return c.Success();
-        }
-
-        [Target(nameof(PrepareTargets.Init))]
-        public static BuildTargetResult RestoreLockedCoreHost(BuildTargetContext c)
-        {
-            var hostVersion = c.BuildContext.Get<HostVersion>("HostVersion");
-            var lockedHostFxrVersion = hostVersion.LockedHostFxrVersion;
-
-            var currentRid = HostPackagePlatformRid;
-
-            string projectJson = $@"{{
-  ""dependencies"": {{
-      ""Microsoft.NETCore.DotNetHostResolver"" : ""{lockedHostFxrVersion}""
-  }},
-  ""frameworks"": {{
-      ""netcoreapp1.0"": {{}}
-  }},
-  ""runtimes"": {{
-      ""{currentRid}"": {{}}
-  }}
-}}";
-            var tempPjDirectory = Path.Combine(Dirs.Intermediate, "lockedHostTemp");
-            FS.Rmdir(tempPjDirectory);
-            Directory.CreateDirectory(tempPjDirectory);
-            var tempPjFile = Path.Combine(tempPjDirectory, "project.json");
-            File.WriteAllText(tempPjFile, projectJson);
-
-            DotNetCli.Stage0.Restore("--verbosity", "verbose", "--infer-runtimes",
-                    "--fallbacksource", Dirs.CorehostLocalPackages,
-                    "--fallbacksource", Dirs.CorehostDummyPackages)
-                .WorkingDirectory(tempPjDirectory)
-                .Execute()
-                .EnsureSuccessful();
-
-            // Clean out before publishing locked binaries
-            FS.Rmdir(Dirs.CorehostLocked);
-
-            // Use specific RIDS for non-backward compatible platforms.
-            (CurrentPlatform.IsWindows
-                ? DotNetCli.Stage0.Publish("--output", Dirs.CorehostLocked, "--no-build")
-                : DotNetCli.Stage0.Publish("--output", Dirs.CorehostLocked, "--no-build", "-r", currentRid))
-                .WorkingDirectory(tempPjDirectory)
-                .Execute()
-                .EnsureSuccessful();
-
             return c.Success();
         }
 
@@ -129,7 +83,6 @@ namespace Microsoft.DotNet.Cli.Build
             }
             Directory.CreateDirectory(Dirs.Stage1);
 
-            CopySharedHost(Dirs.Stage1);
             var result = CompileCliSdk(c,
                 dotnet: DotNetCli.Stage0,
                 outputDir: Dirs.Stage1);
@@ -155,7 +108,6 @@ namespace Microsoft.DotNet.Cli.Build
             }
             Directory.CreateDirectory(Dirs.Stage2);
 
-            CopySharedHost(Dirs.Stage2);
             var result = CompileCliSdk(c,
                 dotnet: DotNetCli.Stage1,
                 outputDir: Dirs.Stage2);
@@ -206,32 +158,24 @@ namespace Microsoft.DotNet.Cli.Build
             FS.RmFilesInDirRecursive(directory, "*.pdb");
         }
 
-        private static void CopySharedHost(string outputDir)
-        {
-            File.Copy(
-                Path.Combine(Dirs.CorehostLocked, DotnetHostBaseName),
-                Path.Combine(outputDir, DotnetHostBaseName), true);
-            File.Copy(
-                Path.Combine(Dirs.CorehostLocked, DotnetHostFxrBaseName),
-                Path.Combine(outputDir, DotnetHostFxrBaseName), true);
-        }
-
-        private static BuildTargetResult CompileCliSdk(BuildTargetContext c, DotNetCli dotnet, string outputDir)
+        private static BuildTargetResult CompileCliSdk(BuildTargetContext c, DotNetCli dotnet, string rootOutputDirectory)
         {
             var configuration = c.BuildContext.Get<string>("Configuration");
             var buildVersion = c.BuildContext.Get<BuildVersion>("BuildVersion");
             var srcDir = Path.Combine(c.BuildContext.BuildDirectory, "src");
-            outputDir = Path.Combine(outputDir, "sdk", buildVersion.NuGetVersion);
+            var sdkOutputDirectory = Path.Combine(rootOutputDirectory, "sdk", buildVersion.NuGetVersion);
+
+            CopySharedFramework(Dirs.SharedFrameworkPublish, rootOutputDirectory);
 
             FS.CleanBinObj(c, srcDir);
-            Rmdir(outputDir);
-            Mkdirp(outputDir);
+            Rmdir(sdkOutputDirectory);
+            Mkdirp(sdkOutputDirectory);
 
             foreach (var project in ProjectsToPublish)
             {
                 dotnet.Publish(
                     "--native-subdirectory",
-                    "--output", outputDir,
+                    "--output", sdkOutputDirectory,
                     "--configuration", configuration,
                     "--version-suffix", buildVersion.CommitCountString,
                     Path.Combine(srcDir, project))
@@ -239,36 +183,36 @@ namespace Microsoft.DotNet.Cli.Build
                     .EnsureSuccessful();
             }
 
-            FixModeFlags(outputDir);
+            FixModeFlags(sdkOutputDirectory);
 
             string compilersProject = Path.Combine(Dirs.RepoRoot, "src", "compilers");
             dotnet.Publish(compilersProject,
                     "--output",
-                    outputDir,
+                    sdkOutputDirectory,
                     "--framework",
                     "netstandard1.5")
                     .Execute()
                     .EnsureSuccessful();
 
-            var compilersDeps = Path.Combine(outputDir, "compilers.deps.json");
-            var compilersRuntimeConfig = Path.Combine(outputDir, "compilers.runtimeconfig.json");
+            var compilersDeps = Path.Combine(sdkOutputDirectory, "compilers.deps.json");
+            var compilersRuntimeConfig = Path.Combine(sdkOutputDirectory, "compilers.runtimeconfig.json");
 
-            File.Copy(Path.Combine(Dirs.CorehostLocked, DotnetHostBaseName), Path.Combine(outputDir, $"corehost{Constants.ExeSuffix}"), overwrite: true);
-            File.Copy(Path.Combine(Dirs.CorehostLocked, $"{Constants.DynamicLibPrefix}hostfxr{Constants.DynamicLibSuffix}"), Path.Combine(outputDir, $"{Constants.DynamicLibPrefix}hostfxr{Constants.DynamicLibSuffix}"), overwrite: true);
-            File.Copy(Path.Combine(Dirs.CorehostLatest, $"{Constants.DynamicLibPrefix}hostpolicy{Constants.DynamicLibSuffix}"), Path.Combine(outputDir, $"{Constants.DynamicLibPrefix}hostpolicy{Constants.DynamicLibSuffix}"), overwrite: true);
+            File.Copy(Path.Combine(Dirs.CorehostLocked, DotnetHostBaseName), Path.Combine(sdkOutputDirectory, $"corehost{Constants.ExeSuffix}"), overwrite: true);
+            File.Copy(Path.Combine(Dirs.CorehostLocked, $"{Constants.DynamicLibPrefix}hostfxr{Constants.DynamicLibSuffix}"), Path.Combine(sdkOutputDirectory, $"{Constants.DynamicLibPrefix}hostfxr{Constants.DynamicLibSuffix}"), overwrite: true);
+            File.Copy(Path.Combine(Dirs.CorehostLatest, $"{Constants.DynamicLibPrefix}hostpolicy{Constants.DynamicLibSuffix}"), Path.Combine(sdkOutputDirectory, $"{Constants.DynamicLibPrefix}hostpolicy{Constants.DynamicLibSuffix}"), overwrite: true);
 
-            var binaryToCorehostifyOutDir = Path.Combine(outputDir, "runtimes", "any", "native");
+            var binaryToCorehostifyOutDir = Path.Combine(sdkOutputDirectory, "runtimes", "any", "native");
             // Corehostify binaries
             foreach (var binaryToCorehostify in BinariesForCoreHost)
             {
                 try
                 {
                     // Yes, it is .exe even on Linux. This is the managed exe we're working with
-                    File.Copy(Path.Combine(binaryToCorehostifyOutDir, $"{binaryToCorehostify}.exe"), Path.Combine(outputDir, $"{binaryToCorehostify}.dll"));
+                    File.Copy(Path.Combine(binaryToCorehostifyOutDir, $"{binaryToCorehostify}.exe"), Path.Combine(sdkOutputDirectory, $"{binaryToCorehostify}.dll"));
                     File.Delete(Path.Combine(binaryToCorehostifyOutDir, $"{binaryToCorehostify}.exe"));
-                    File.Copy(compilersDeps, Path.Combine(outputDir, binaryToCorehostify + ".deps.json"));
-                    File.Copy(compilersRuntimeConfig, Path.Combine(outputDir, binaryToCorehostify + ".runtimeconfig.json"));
-                    PublishMutationUtilties.ChangeEntryPointLibraryName(Path.Combine(outputDir, binaryToCorehostify + ".deps.json"), binaryToCorehostify);
+                    File.Copy(compilersDeps, Path.Combine(sdkOutputDirectory, binaryToCorehostify + ".deps.json"));
+                    File.Copy(compilersRuntimeConfig, Path.Combine(sdkOutputDirectory, binaryToCorehostify + ".runtimeconfig.json"));
+                    PublishMutationUtilties.ChangeEntryPointLibraryName(Path.Combine(sdkOutputDirectory, binaryToCorehostify + ".deps.json"), binaryToCorehostify);
                 }
                 catch (Exception ex)
                 {
@@ -277,7 +221,7 @@ namespace Microsoft.DotNet.Cli.Build
             }
 
             // cleanup compilers project output we don't need
-            PublishMutationUtilties.CleanPublishOutput(outputDir, "compilers");
+            PublishMutationUtilties.CleanPublishOutput(sdkOutputDirectory, "compilers");
             File.Delete(compilersDeps);
             
             // Publish SharedFx
@@ -291,16 +235,23 @@ namespace Microsoft.DotNet.Cli.Build
                 Dirs.CorehostLocalPackages,
                 sharedFrameworkNugetVersion);
 
-            sharedFrameworkPublisher.PublishSharedFramework(outputDir, commitHash, dotnet);
+            sharedFrameworkPublisher.PublishSharedFramework(sdkOutputDirectory, commitHash, dotnet);
 
-            CrossgenUtil.CrossgenDirectory(sharedFrameworkPublisher.GetSharedFrameworkPublishPath(outputDir), outputDir);
+            CrossgenUtil.CrossgenDirectory(sharedFrameworkPublisher.GetSharedFrameworkPublishPath(sdkOutputDirectory), sdkOutputDirectory);
 
             // Generate .version file
             var version = buildVersion.NuGetVersion;
             var content = $@"{c.BuildContext["CommitHash"]}{Environment.NewLine}{version}{Environment.NewLine}";
-            File.WriteAllText(Path.Combine(outputDir, ".version"), content);
+            File.WriteAllText(Path.Combine(sdkOutputDirectory, ".version"), content);
 
             return c.Success();
+        }
+
+        private static void CopySharedFramework(string sharedFrameworkPublish, string rootOutputDirectory)
+        {
+            CopyRecursive(sharedFrameworkPublish, rootOutputDirectory);
+            Console.WriteLine(rootOutputDirectory);
+            throw new Exception();
         }
     }
 }

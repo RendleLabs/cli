@@ -45,6 +45,7 @@ namespace Microsoft.DotNet.Host.Build
         [Target(nameof(PrepareTargets.Init), 
             nameof(CompileCoreHost), 
             nameof(PackagePkgProjects),
+            nameof(RestoreLockedCoreHost),
             nameof(PublishSharedFramework))]
         public static BuildTargetResult Compile(BuildTargetContext c)
         {
@@ -230,10 +231,56 @@ namespace Microsoft.DotNet.Host.Build
             return c.Success();
         }
 
+        [Target(nameof(PrepareTargets.Init))]
+        public static BuildTargetResult RestoreLockedCoreHost(BuildTargetContext c)
+        {
+            var hostVersion = c.BuildContext.Get<HostVersion>("HostVersion");
+            var lockedHostFxrVersion = hostVersion.LockedHostFxrVersion;
+
+            var currentRid = HostPackagePlatformRid;
+
+            string projectJson = $@"{{
+  ""dependencies"": {{
+      ""Microsoft.NETCore.DotNetHostResolver"" : ""{lockedHostFxrVersion}""
+  }},
+  ""frameworks"": {{
+      ""netcoreapp1.0"": {{}}
+  }},
+  ""runtimes"": {{
+      ""{currentRid}"": {{}}
+  }}
+}}";
+            var tempPjDirectory = Path.Combine(Dirs.Intermediate, "lockedHostTemp");
+            FS.Rmdir(tempPjDirectory);
+            Directory.CreateDirectory(tempPjDirectory);
+            var tempPjFile = Path.Combine(tempPjDirectory, "project.json");
+            File.WriteAllText(tempPjFile, projectJson);
+
+            DotNetCli.Stage0.Restore("--verbosity", "verbose", "--infer-runtimes",
+                    "--fallbacksource", Dirs.CorehostLocalPackages,
+                    "--fallbacksource", Dirs.CorehostDummyPackages)
+                .WorkingDirectory(tempPjDirectory)
+                .Execute()
+                .EnsureSuccessful();
+
+            // Clean out before publishing locked binaries
+            FS.Rmdir(Dirs.CorehostLocked);
+
+            // Use specific RIDS for non-backward compatible platforms.
+            (CurrentPlatform.IsWindows
+                ? DotNetCli.Stage0.Publish("--output", Dirs.CorehostLocked, "--no-build")
+                : DotNetCli.Stage0.Publish("--output", Dirs.CorehostLocked, "--no-build", "-r", currentRid))
+                .WorkingDirectory(tempPjDirectory)
+                .Execute()
+                .EnsureSuccessful();
+
+            return c.Success();
+        }
+
         [Target]
         public static BuildTargetResult PublishSharedFramework(BuildTargetContext c)
         {
-            var outputDir = Dirs.CorehostBuildSharedFrameworkPublishDir;
+            var outputDir = Dirs.SharedFrameworkPublish;
             var dotnetCli = DotNetCli.Stage0;
             var sharedFrameworkNugetVersion = c.BuildContext.Get<string>("SharedFrameworkNugetVersion");
             var commitHash = c.BuildContext.Get<string>("CommitHash");

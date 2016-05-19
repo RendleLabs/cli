@@ -59,10 +59,11 @@ namespace Microsoft.DotNet.Host.Build
 
             Directory.CreateDirectory(sharedHostRoot);
 
-            foreach (var file in Directory.GetFiles(Dirs.CorehostBuildSharedFrameworkPublishDir, "*", SearchOption.TopDirectoryOnly))
+            foreach (var file in Directory.GetFiles(Dirs.SharedFrameworkPublish, "*", SearchOption.TopDirectoryOnly))
             {
-                var destFile = file.Replace(Dirs.Output, sharedHostRoot);
+                var destFile = file.Replace(Dirs.SharedFrameworkPublish, sharedHostRoot);
                 File.Copy(file, destFile, true);
+                c.Warn(destFile);
             }
             FixPermissions(sharedHostRoot);
 
@@ -80,7 +81,7 @@ namespace Microsoft.DotNet.Host.Build
             }
 
             Directory.CreateDirectory(sharedFxRoot);
-            Utils.CopyDirectoryRecursively(Path.Combine(Dirs.CorehostBuildSharedFrameworkPublishDir, "shared"), sharedFxRoot, true);
+            Utils.CopyDirectoryRecursively(Path.Combine(Dirs.SharedFrameworkPublish, "shared"), sharedFxRoot, true);
             FixPermissions(sharedFxRoot);
 
             c.BuildContext["SharedFrameworkPublishRoot"] = sharedFxRoot;
@@ -95,7 +96,7 @@ namespace Microsoft.DotNet.Host.Build
             {
                 Utils.DeleteDirectory(combinedRoot);
             }
-
+            Directory.CreateDirectory(combinedRoot);
 
             string sharedFrameworkPublishRoot = c.BuildContext.Get<string>("SharedFrameworkPublishRoot");
             Utils.CopyDirectoryRecursively(sharedFrameworkPublishRoot, combinedRoot);
