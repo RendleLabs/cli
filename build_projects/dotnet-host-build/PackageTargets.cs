@@ -61,7 +61,7 @@ namespace Microsoft.DotNet.Host.Build
 
             foreach (var file in Directory.GetFiles(Dirs.CorehostBuildSharedFrameworkPublishDir, "*", SearchOption.TopDirectoryOnly))
             {
-                var destFile = file.Replace(Dirs.CorehostBuildSharedFrameworkPublishDir, sharedHostRoot);
+                var destFile = file.Replace(Dirs.Output, sharedHostRoot);
                 File.Copy(file, destFile, true);
             }
             FixPermissions(sharedHostRoot);

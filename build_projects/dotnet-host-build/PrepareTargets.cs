@@ -235,11 +235,6 @@ namespace Microsoft.DotNet.Host.Build
         {
             var dotnet = DotNetCli.Stage0;
 
-            dotnet.Restore("--verbosity", "verbose", "--disable-parallel", "--fallbacksource", Dirs.CorehostLocalPackages)
-                .WorkingDirectory(Path.Combine(c.BuildContext.BuildDirectory, "src"))
-                .Execute()
-                .EnsureSuccessful();
-
             dotnet.Restore("--verbosity", "verbose", "--disable-parallel", "--infer-runtimes")
                 .WorkingDirectory(Path.Combine(c.BuildContext.BuildDirectory, "tools"))
                 .Execute()
