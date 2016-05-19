@@ -144,6 +144,38 @@ namespace Microsoft.DotNet.Cli.Build
             return c.Success();
         }
 
+        [Target(nameof(MsiTargets.InitMsi))]
+        [BuildPlatforms(BuildPlatform.Windows)]
+        public static BuildTargetResult ExtractEngineFromBundle(BuildTargetContext c)
+        {
+            ExtractEngineFromBundleHelper(SdkBundle, SdkEngine);
+            return c.Success();
+        }
+
+        [Target(nameof(MsiTargets.InitMsi))]
+        [BuildPlatforms(BuildPlatform.Windows)]
+        public static BuildTargetResult ReattachEngineToBundle(BuildTargetContext c)
+        {
+            ReattachEngineToBundleHelper(SdkBundle, SdkEngine);
+            return c.Success();
+        }
+
+        private static void ExtractEngineFromBundleHelper(string bundle, string engine)
+        {
+            Cmd($"{WixRoot}\\insignia.exe", "-ib", bundle, "-o", engine)
+                    .Execute()
+                    .EnsureSuccessful();
+        }
+
+        private static void ReattachEngineToBundleHelper(string bundle, string engine)
+        {
+            Cmd($"{WixRoot}\\insignia.exe", "-ab", engine, bundle, "-o", bundle)
+                    .Execute()
+                    .EnsureSuccessful();
+
+            File.Delete(engine);
+        }
+
         private static string GetEngineName(string bundle)
         {
             var engine = $"{Path.GetFileNameWithoutExtension(bundle)}-{ENGINE}";

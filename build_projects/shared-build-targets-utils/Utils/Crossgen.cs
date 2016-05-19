@@ -67,7 +67,10 @@ namespace Microsoft.DotNet.Cli.Build
             // Check if we need to skip crossgen
             if (string.Equals(Environment.GetEnvironmentVariable("DISABLE_CROSSGEN"), "1"))
             {
+                var originalColor = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("Skipping crossgen for because DISABLE_CROSSGEN is set to 1");
+                Console.ForegroundColor = originalColor;
                 return;
             }
 

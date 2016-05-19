@@ -181,5 +181,37 @@ namespace Microsoft.DotNet.Host.Build
             var engine = $"{Path.GetFileNameWithoutExtension(bundle)}-{ENGINE}";
             return Path.Combine(Path.GetDirectoryName(bundle), engine);
         }
+
+        [Target(nameof(MsiTargets.InitMsi))]
+        [BuildPlatforms(BuildPlatform.Windows)]
+        public static BuildTargetResult ExtractEngineFromBundle(BuildTargetContext c)
+        {
+            ExtractEngineFromBundleHelper(SharedFrameworkBundle, SharedFrameworkEngine);
+            return c.Success();
+        }
+
+        [Target(nameof(MsiTargets.InitMsi))]
+        [BuildPlatforms(BuildPlatform.Windows)]
+        public static BuildTargetResult ReattachEngineToBundle(BuildTargetContext c)
+        {
+            ReattachEngineToBundleHelper(SharedFrameworkBundle, SharedFrameworkEngine);
+            return c.Success();
+        }
+
+        private static void ExtractEngineFromBundleHelper(string bundle, string engine)
+        {
+            Cmd($"{WixRoot}\\insignia.exe", "-ib", bundle, "-o", engine)
+                    .Execute()
+                    .EnsureSuccessful();
+        }
+
+        private static void ReattachEngineToBundleHelper(string bundle, string engine)
+        {
+            Cmd($"{WixRoot}\\insignia.exe", "-ab", engine, bundle, "-o", bundle)
+                    .Execute()
+                    .EnsureSuccessful();
+
+            File.Delete(engine);
+        }
     }
 }
