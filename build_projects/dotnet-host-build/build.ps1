@@ -8,6 +8,7 @@ param(
     [string]$Architecture="x64",
     [string[]]$Targets=@("Default"),
     [switch]$NoPackage,
+    [string[]$EnvVar]
     [switch]$Help)
 
 if($Help)
@@ -34,6 +35,8 @@ else
 {
     $env:DOTNET_BUILD_SKIP_PACKAGING=0
 }
+
+
 
 # Load Branch Info
 cat "$RepoRoot\branchinfo.txt" | ForEach-Object {
@@ -77,5 +80,5 @@ if($LASTEXITCODE -ne 0) { throw "Failed to compile build scripts" }
 # Run the builder
 Write-Host "Invoking Build Scripts..."
 Write-Host " Configuration: $env:CONFIGURATION"
-& "$PSScriptRoot\bin\dotnet-host-build.exe" @Targets
+& "$PSScriptRoot\bin\dotnet-host-build.exe" @Targets @EnvVar
 if($LASTEXITCODE -ne 0) { throw "Build failed" }

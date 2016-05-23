@@ -53,9 +53,13 @@ namespace Microsoft.DotNet.Cli.Build.Framework
         public int Run(string[] args)
         {
             var targets = new[] { BuildContext.DefaultTarget };
-            if(args.Length > 0)
+
+            SetEnvironmentVariablesFromArgs(args);
+
+            var argTargets = GetTargetsFromArgs(args);
+            if(argTargets.Length > 0)
             {
-                targets = args;
+                targets = argTargets;
             }
 
             Reporter.Output.WriteBanner($"Building {ProductName}");
@@ -97,6 +101,41 @@ namespace Microsoft.DotNet.Cli.Build.Framework
                 Reporter.Output.WriteLine("Build succeeded".Green());
                 return 0;
             }
+        }
+
+        private static void SetEnvironmentVariablesFromArgs(string[] args)
+        {
+            foreach (string arg in args)
+            {
+                if (arg.Contains("="))
+                {
+                    var parts = arg.Split('=');
+                    if (parts.Length != 2)
+                    {
+                        throw new Exception($"Invalid Environment Variable argument: {arg}");
+                    }
+
+                    var environmentVariableName = parts[0];
+                    var environmentVariableValue = parts[1];
+
+                    Environment.SetEnvironmentVariable(envVarName, envVarValue);
+                }
+            }
+        }
+
+        private static string[] GetTargetsFromArgs(string[] args)
+        {
+            var targets = new List<string>();
+
+            foreach (var arg in args)
+            {
+                if ( ! arg.Contains("="))
+                {
+                    targets.Append(arg);
+                }
+            }
+
+            return targets.ToArray();
         }
 
         private static IEnumerable<BuildTarget> CollectTargets(Type typ)

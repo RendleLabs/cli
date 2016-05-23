@@ -29,6 +29,10 @@ while [[ $# > 0 ]]; do
             IFS=',' read -r -a targets <<< $2
             shift
             ;;
+        --envvars)
+            IFS=',' read -r -a envvars <<< $2
+            shift
+            ;;
         --nopackage)
             export DOTNET_BUILD_SKIP_PACKAGING=1
             ;;
@@ -114,5 +118,5 @@ export PATH="$OLDPATH"
 echo "Invoking Build Scripts..."
 echo "Configuration: $CONFIGURATION"
 
-$DIR/bin/dotnet-host-build ${targets[@]}
+$DIR/bin/dotnet-host-build ${targets[@]} ${envvars[@]}
 exit $?
